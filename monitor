@@ -1,0 +1,37 @@
+#!/bin/bash
+#Coursework  Feroz Shahid
+#Monitor Script
+
+sleep 0.1 #waits for trash to proparly exit, otherwise there will be a delay showing the number of files in trash from the trap in the trash script
+echo " " #New line
+echo "...MONITOR SCRIPT RUNNING...." #header telling you the process has started
+
+test(){
+files=/tmp/filelist
+trash_dir=~/.trashdir.trash/
+
+[[ -f ${files} ]] || ls ${trash_dir} > ${files}
+
+while : ; do
+    current=$(ls ${trash_dir})
+    diff <(cat ${files}) <(echo $current) || \
+         { echo "directory changed" ;
+           # Overwrite file list with the new one.
+           echo $current > ${files} ;
+         }
+
+    sleep 10
+done
+}
+
+while true #stays true so the process keeps looping forever until it is killed
+
+do #start of loop
+
+
+newfile #calls the function to detect new files
+
+sleep 10 #waits for 10 secs before going through the loop again
+
+
+done #end of loop

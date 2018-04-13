@@ -1,0 +1,253 @@
+#!/bin/bash
+#Coursework - Feroz Shahid
+#Trash BashScript
+
+trap trash_terminated EXIT #runs function for trap when script exits
+
+
+
+mkdir -p ~/.trashdir.trash #Creates the trash direcory if it doesn't exist
+
+trash_terminated(){ #function for trap
+echo " " #new line
+#shows the total number of files in trash
+echo -n "Total number of files in you're trash: "  
+cd ~/.trashdir.trash && ls -l | grep ^- | wc -l #gets all items in trash and displays numebr of items
+if [ "$(ls -A ~/.trashdir.trash)" ]; then #first checks if trash is not empty
+size=$(cd ~/.trashdir.trash && find -type f -print0 | xargs -0 stat --print='%s\n' | awk '{total+=$1} END {print total}') #varable to store size of the trash directory, finds all file in trash and their sizes and adds them together
+size=$(($size/1024)) #converts the size varable from bytes to KBytes
+if [ $size -gt 500 ] || [ $size -eq 500 ] ;then #checks if the size of trash is greater than or equal to 500Kbytes
+echo "WARNING! Your trash directory exceeds 500KBytes, it is recommended you empty trash"
+echo "trash is currenty $size bytes"
+fi
+fi
+}
+
+#----------- Start of functions for the command line ---------------
+
+list_Files() #Lists contents of trash directory by name, size(bytes) & File Type
+{
+if [ "$(ls -A ~/.trashdir.trash)" ]; then #first checks if trash is not empty before attempting to show files
+echo " "
+cd ~/.trashdir.trash/ && stat -c  %n"   "%s"   "%F  * #displays contents of trash as name,size,type
+echo " "
+else
+   echo " "
+    echo "Your Trash Directory Is Empty" #displays message if the trash is empty
+   echo " "
+fi
+}
+
+empty_trash() #Function For emptying trash asks user if they are sure, to sure trash contents does not get accidently deleted
+{
+if [ "$(ls -A ~/.trashdir.trash)" ]; then #checks first if trash is not empty already
+ echo "Are You Sure You Want To Empty Trash?, This Can't Be Recovered Once Emptied" #asks user if they are sure to empty trash
+ echo -n "Enter Y or N: "
+    read selection #takes in user response Y or N
+    echo ""
+    case $selection in #case statment for user's selection
+        Y ) rm -r ~/.trashdir.trash/*;; #Deletes contents of trash if user is sure
+        N ) exit ;; #exits selection choice if user does not want to empty trash
+        * ) echo "INVALID: Please enter Y or N"; empty_trash; #catches invalid data being entered
+    esac
+else
+echo " "
+echo "Trash is already empty" #Displays message of trash is already empty
+echo " "
+fi
+}
+
+get_file(){ #Function to get a file
+if [ "$(ls -A ~/.trashdir.trash)" ]; then #first checks if trash is not empty
+FILE=~/.trashdir.trash/$OPTARG #gets selected file from command
+ if [ -f "$FILE" ] || [ -d "$FILE" ]; #checks if the selected file exists
+then
+   mv $FILE . #Moves selected file to current directory
+else
+echo " "
+   echo "The file '$OPTARG'  does not exist so can't be moved" >&2 #if file doesnt exist displays message
+fi
+else
+echo " "
+echo "your trash is empty, can't get anything from trash" #displays message if trash is empty
+fi
+}
+
+view_file(){ #Function for viwing a file
+FILE=~/.trashdir.trash/$OPTARG #gets selected file to view from command line
+if [ -f "$FILE" ] && [ -r $FILE ] ; #checks if the file exists and is readable
+  then
+    echo " "; cat $FILE; echo " "; #shows the files contents in the command line
+  else
+echo " "
+   echo "can't view contents of '$OPTARG' , make sure the file exists and is readable" >&2 #displays a message if the file cant be read
+fi
+}
+
+
+kill_monitor(){ #function to kill the monitor scripts
+ps -ef | grep monitor | awk '{print $2}' | xargs kill -9 #kills the script by finding the monitor process and killing it
+}
+
+view_users_trash(){ #function for viewing a specific user's trash
+echo " " #new line
+if [ -d /home/$OPTARG ]; then #checks if the user exists
+  if [ -d /home/$OPTARG/.trashdir.trash ]; then #checks to see if the user has a trash directory
+if [ "$(ls -A /home/$OPTARG/.trashdir.trash)" ]; then #first checks if trash is not empty before attempting to show files
+cd /home/ && cd $OPTARG && cd .trashdir.trash && stat -c  %n"   "%s"   "%F  * #shows users trash contents if it exists in name,size,type
+else
+    echo "$OPTARG - Trash Directory Is Empty" #displays message if the trash is empty
+fi
+  else
+  echo "$OPTARG does not have a trash directory" #displays a message if the user does not have a trash directory
+  fi
+echo " "
+else
+echo "The user '$OPTARG' does not exist" #displays a message if the selected user does not exist
+echo 
+fi
+}
+
+total_usage(){ #function to check total usage of trash
+echo " " #new line
+total_usage=0 #initialises varables total usage with zero
+for user in /home/* #goes through each user in the home directory
+do
+if [ -d $user/.trashdir.trash ] && [ "$(ls -A $user/.trashdir.trash)" ]; then #checks to see if the user has a trash directory and it is not empty
+size="$(cd $user/.trashdir.trash && find -type f -print0 | xargs -0 stat --print='%s\n' | awk '{total+=$1} END {print total}')" #stores total size of trash by finding all file sizes in trash and adding them
+
+echo "$user -> $size bytes" #displays the user and the total size of its trash individualy
+
+(( total_usage += $size )) #adds together all the users trash directory to the varable total usage
+echo " " #new line
+fi
+done
+echo "----------------------"
+echo "total usage: $total_usage Bytes" #displays the total usage of trash for all users added together
+echo "----------------------"
+}
+
+#---------command to move file to trash-----------------------
+
+
+if [ "$1" == "file" ]; then #checks for the 'file' command
+   if [ ! -z $2 ]; then #checks to see if the user entered more text for the file they want to move to trash
+     if [ -f $2 ] || [ -d $2 ]; then
+       mv $2 ~/.trashdir.trash ; #moves the file to trash if it exists
+       else
+       echo " "
+       echo "The file '$2'  does not exist so can't be moved" >&2 #displays a message if the file doesnt exist
+     fi
+   else
+echo " "
+    echo "data missing - please enter the name of the file you wish to move" #displays message if the user didn't choose a file to move
+   fi
+else
+
+
+#----------- Start of getopts for the command line ---------------
+
+USAGE="usage: $0 [-l] [-g string] [-r] [-v string] [-u] [-t] [-m] [-k]" 
+
+while getopts :lg:rv:u:mtk args #options
+do 
+  case $args in
+#each argument calls it's corasponding function
+     l) list_Files ;;
+     g) get_file ;; 
+     r) empty_trash ;;
+     v) view_file ;; 
+     u) view_users_trash ;;
+     t) total_usage ;;
+     m) monitor &;; #Runs the monitor script (seperate script)
+     k) kill_monitor;;
+     :) echo " " && echo "data missing, option -$OPTARG" 1>&2;; #displays message if the extra command data is missing
+    \?) echo " " && echo "unknown option: -$OPTARG" 1>&2;; #displays message if the command entered does not exist
+  esac
+done
+
+fi
+
+#----------- Start of menu ---------------
+
+USAGE="usage: $0" 
+
+PS3="select option> "
+
+if (( $# == 0 ))
+then
+#List of items in menu to display
+  select menu_list in "move file to trash" "List contents of Trash" "get specific file" "View contents of specific file" "List contents of trash for specific user" "Total usage of all trash directors from each user"   "Empty Trash" "start monitor" "exit"
+  do
+    case $menu_list in
+       "move file to trash")  echo -n "Enter Filename to move: " #asks user to enter filename to move
+                              read filetomove #takes in users input
+                            if [ -f "$filetomove" ]||[ -d "$filetomove" ]; #checks if input is a file that exists
+                            then
+                              mv $filetomove ~/.trashdir.trash ; #if the file exists it is moved to trash
+                            else
+                              echo " " #new line
+                              echo "The file '$filetomove'  does not exist so can't be moved" >&2 #displays message if the file does not exist
+                              echo " " #new line
+                            fi ;;
+       "List contents of Trash") list_Files ;; #calls function for list files
+       "get specific file") echo -n "Enter File to get: " #asks user to enter the file they want to get
+                            read filetoget #takes in users input
+                            FILE=~/.trashdir.trash/$filetoget  #varable that holds user's input
+                          if [ -f "$FILE" ] || [ -d "$FILE" ]; #checks if the file exists
+                          then
+                              mv $FILE . #If the file exists it is moved to the current directory
+                          else
+                              echo " " #new line
+                              echo "The file '$filetoget'  does not exist so can't be moved" >&2 #displays message if the file entered does not exit 
+                              echo " " #new line
+                          fi;;
+       "View contents of specific file") echo -n "Enter Filename to read: " #asks user for the file to read
+                            read filetoread #gets user input
+                            FILE=~/.trashdir.trash/$filetoread #varable to hold selected file
+                           if [ -f "$FILE" ] && [ -r $FILE ]; #checks if the file exists and is readable
+                           then
+                           echo " "; cat $FILE; echo " "; #if the file is readable it is displayed in the command line
+                           else
+                              echo " " #new line
+                             echo "can't view contents of '$filetoread' , make sure the file exists and is readable" >&2 #message if the file is not readable
+                              echo " " #new line
+                           fi;;
+       "List contents of trash for specific user")  echo -n "Enter Username: " #asks for username to check
+                            read usertocheck #gets users input
+                              echo " "
+                           if [ -d /home/$usertocheck ]; then #checks if the user exists
+                              if [ -d /home/$usertocheck/.trashdir.trash ]; then #checks to see if the user has a trash directory
+                                if [ "$(ls -A /home/$usertocheck/.trashdir.trash)" ]; then #first checks if trash is not empty before attempting to show files
+                                cd /home/ && cd $usertocheck && cd .trashdir.trash && stat -c  %n"   "%s"   "%F  * #shows users trash contents if it exists
+                                     else
+                                   echo "$usertocheck - Trash Directory Is Empty" #displays message if the trash is empty
+                                       fi
+                              else
+                               echo "$usertocheck does not have a trash directory" #displays a message if the user does not have a trash directory
+                              fi
+                             echo " "
+                           else
+                              echo "The user '$usertocheck' does not exist" #displays a message if the user selected does not exist
+                           echo 
+                           fi
+                         ;;
+       "Total usage of all trash directors from each user")  total_usage;; #calls function to check the total usage of trash
+       "Empty Trash")  empty_trash ;; #calls function to empty the trash
+       "start monitor") echo "to kill this process enter the command trash -k" #message to tell user how to exit the monitor script
+                        monitor & #starts the monitor script in the background
+                        exit 0;; #exits the menu
+       "exit") exit 0;; #exits the menu
+        *) echo "unknown option" 1>&2;; #displays message where the option entered is not there
+    esac
+  done
+else echo 1>&2; exit 1 #exits the application
+fi
+
+
+
+
+
+
+
+
