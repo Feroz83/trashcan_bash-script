@@ -7,7 +7,7 @@
 | --------|---------|
 | file [name of file]  | moves any of your file to trash   | 
 | -l | view  contents of the trash | 
-| -g [get a file from trash and restore it in your current directory |  | 
+| -g | [get a file from trash and restore it in your current directory |
 | -r | remove the contents of the trash directory | 
 | -v [name of file] | view the contents of a file that is in trash | 
 | -u [username] | view the contents of another user’s trash | 
